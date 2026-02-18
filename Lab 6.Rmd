@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 #path <- "...."
 #knitr::opts_knit$set(root.dir = path)
 #setwd(path)
+getwd()
 ```
 
 ## Before you start
@@ -27,8 +28,13 @@ In this lab we will use some GPS tracking data for Blue Whales in the eastern No
 1. Use `terra::vect` to read in the datapoints for the Blue Whale migration data ("points.shp"). 
 
 ```{r blue}
+install.packages("terra")
 library(terra)
-bluew <- vect(________________)
+bluew <- vect("Blue Whale Migration Data")
+file.exists("Blue Whale Migration Data")
+read.csv('Blue Whale Migration Data')
+getwd()
+class(vect)
 bluew
 ```
 
@@ -36,8 +42,11 @@ This is a set of point location for GPS tagged blue whales the eastern north Pac
 
 2) How many observations are there in this dataset? And how many individual whales are tracked? 
 
-```{r nobs}
-
+```{r}
+tail(bluew)
+nrow(bluew)
+whales=length(unique(bluew$ind_ident))
+#There are 15,545 unique observations and 141 individual whales
 ```
 
 ## Mapping whales
@@ -45,6 +54,8 @@ This is a set of point location for GPS tagged blue whales the eastern north Pac
 3. Get the global country boundaries with the geodata package 
 
 ```{r wrld}
+install.packages("geodata")
+library(geodata)
 wrld <- geodata::world(path=".")
 ```
 
@@ -63,64 +74,95 @@ plot(wrld, ext=aoi)
 
 #Step 2: plot the whale points. You can use either the "points" method or "plot( , add=TRUE)". The latter is easier for coloring, but you need to tell it not to add a legend.
 
-plot(bluew, add=TRUE)
+plot(bluew,"ind_ident", add=TRUE, legend=FALSE,col=sample(rainbow(whales)))
 ```
 
 5) make new SpatVectors for each of the following two individuals: "2008CA-Bmu-00825" and "2005CA-Bmu-10821"
 
 ```{r spatv}
-
+spat1=bluew[bluew$ind_ident=="2008CA-Bmu-00825",]
+spat1
+spat2=bluew[bluew$ind_ident=="2005CA-Bmu-10821",]
+spat2
 ```
 
-6) Combine these two into one new SpatVector 
+6) Combine these two into one new SpatVector
 
 ```{r comb}
-
+spat_combined=rbind(spat1,spat2)
+spat_combined
 ```
 
 
 7) Make a map showing the tracks of these two using different colors. See plot2 on Canvas for an example.
 
 ```{r tracks}
+aoi=ext(bluew)+2
+plot(wrld,ext=aoi,background="light green")
+plot(spat_combined,"ind_ident",add=TRUE,legend=TRUE,col=c("red","blue"))
 ```
+
 
 ## Protected areas
 
 8) The folder MPAs has a shapefile with polygons for Marine Protected Areas within the United States. This file was extracted from a file with all protected areas in the US [source](https://www.protectedplanet.net). Read the MPA shapefile. 
 
 ```{r PAs}
-mpa <- ___________
+install.packages("sf")
+library(sf)
+mpa <- vect("MPAs/mpas.shp") 
+mpa
 ```
 
 9) Now we will focus on just the US west coast. You can use the following longitude and latitude extent: xmin=-128, xmax=-115, ymin=32, ymax=40. Get just the MPAs on the US west coast by cropping the MPA dataset to this extent.
 
 ```{r ext}
 #Hint: use the crop() function
-mpa <- _______________
+west_coast=ext(-128,-115,32,40)
+cropped=crop(mpa,west_coast)
+plot(cropped)
 ```
 
 10) Find the fraction of the blue whale observations that are in one of the west coast MPAs. You can use `is.related`
 
 ```{r frac}
+whale_coast=is.related(bluew,cropped,"intersects")
+coasttab=table(whale_coast)
+coasttab[2]/sum(coasttab)
+
 ```
 
 11) Find what fraction of blue whales in the dataset spend at least some time in one of these west coast MPAs. 
 
 ```{r fracMPA}
+whales=tapply(whale_coast,bluew$ind_ident,any)
+in_mp=table(whales)
+in_mp[2]/sum(in_mp)
+whales
 ```
 
 
 12. Create a raster with counts of blue whale observations along the California coast. Use the spatial extent we used for the mpa data (question 8) and use a spatial resolution of 1/6th of a degree. First create an empty SpatRaster. Then use `rasterize`
 
 ```{r rcount}
-r <- rast(  , res=1/6)
-r <- rasterize(   , fun="count")
+r <- rast(west_coast, res=1/6)
+r<- rasterize(bluew,r, fun="count")
 r
 ```
 
 13. Make a map to show the counts and the MPAs and land areas. Plot 3 on Canvas shows you the plot you are aiming for. 
 
 ```{r countmap}
+aoi=ext(-128,-115,32,40)
+finalplot1=plot(wrld,ext=aoi,background="light grey")
+plot(r,add=TRUE,col=terrain.colors(10),legend=TRUE)
+plot(cropped, add=TRUE, col=rgb(0,0,1,0.03),border="blue")
+legend("topright",
+       legend = c("MPAs","Whale Points"),
+       fill = c(rgb(0,0,1,0.03),rgb(1,0,0,0.5)),
+       border=c("blue","red")
+       
+       )
 
 ```
 
